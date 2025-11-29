@@ -29,12 +29,9 @@ st.markdown("""
     .stButton>button {
         background-color: #4CAF50;
         color: white;
-        font-size: 18px;
+        font-size: 16px;
         border-radius: 8px;
-        padding: 0.5rem 1rem;
-    }
-    .stTextInput>div>div>input {
-        font-size: 18px;
+        padding: 0.4rem 0.8rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -118,11 +115,16 @@ def add_medicine(name, time):
         "date": dt.date.today()
     })
 
-def mark_taken(name):
-    for med in st.session_state.medicines:
-        if med["name"] == name and med["date"] == dt.date.today():
-            med["taken"] = True
-            st.session_state.taken_today.add(name)
+def mark_taken(index):
+    st.session_state.medicines[index]["taken"] = True
+    st.session_state.taken_today.add(st.session_state.medicines[index]["name"])
+
+def delete_medicine(index):
+    del st.session_state.medicines[index]
+
+def edit_medicine(index, new_name, new_time):
+    st.session_state.medicines[index]["name"] = new_name
+    st.session_state.medicines[index]["time"] = new_time
 
 def calculate_adherence():
     today = dt.date.today()
@@ -137,7 +139,7 @@ def calculate_adherence():
 # Layout
 # ------------------------------
 st.title("💊 MedTimer — Daily Medicine Companion")
-st.write("Track your daily medicines, mark doses, and celebrate your adherence with friendly visuals.")
+st.write("Track your daily medicines, mark doses, edit or delete entries, and celebrate adherence.")
 
 col_input, col_checklist, col_side = st.columns([1.2, 1.5, 1.3])
 
@@ -172,7 +174,7 @@ with col_checklist:
     if not today_meds:
         st.info("No medicines scheduled for today.")
     else:
-        for med in today_meds:
+        for i, med in enumerate(today_meds):
             status = "upcoming"
             if med["taken"]:
                 status = "taken"
@@ -183,10 +185,24 @@ with col_checklist:
             st.markdown(f"**{med['name']}** at {med['time'].strftime('%H:%M')} — "
                         f"<span style='color:{color};font-weight:bold'>{status.upper()}</span>",
                         unsafe_allow_html=True)
-            if not med["taken"] and status != "missed":
-                if st.button(f"Mark {med['name']} as taken"):
-                    mark_taken(med["name"])
-                    st.success(f"{med['name']} marked as taken.")
+
+            colA, colB, colC = st.columns([1, 1, 1])
+            with colA:
+                if not med["taken"] and status != "missed":
+                    if st.button(f"Mark Taken {i}", key=f"taken_{i}"):
+                        mark_taken(i)
+                        st.success(f"{med['name']} marked as taken.")
+            with colB:
+                if st.button(f"Edit {i}", key=f"edit_{i}"):
+                    new_name = st.text_input(f"Edit Name {i}", value=med["name"], key=f"name_{i}")
+                    new_time = st.time_input(f"Edit Time {i}", value=med["time"], key=f"time_{i}")
+                    if st.button(f"Save {i}", key=f"save_{i}"):
+                        edit_medicine(i, new_name, new_time)
+                        st.success(f"{med['name']} updated.")
+            with colC:
+                if st.button(f"Delete {i}", key=f"delete_{i}"):
+                    delete_medicine(i)
+                    st.warning(f"Deleted medicine entry.")
 
 # ------------------------------
 # Side column
