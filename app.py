@@ -146,11 +146,21 @@ col_input, col_checklist, col_side = st.columns([1.2, 1.5, 1.3])
 # ------------------------------
 with col_input:
     st.subheader("Add Medicine")
-    med_name = st.selectbox("Medicine Name", options=COMMON_MEDICINES)
+
+    # Hybrid input: dropdown + manual entry
+    med_choice = st.selectbox("Select Medicine or choose 'Custom'", options=["Custom"] + COMMON_MEDICINES)
+    if med_choice == "Custom":
+        med_name = st.text_input("Enter Medicine Name Manually")
+    else:
+        med_name = med_choice
+
     med_time = st.time_input("Scheduled Time", value=dt.time(9, 0))
     if st.button("Add to Schedule"):
-        add_medicine(med_name, med_time)
-        st.success(f"Added {med_name} at {med_time.strftime('%H:%M')}")
+        if med_name.strip():
+            add_medicine(med_name.strip(), med_time)
+            st.success(f"Added {med_name} at {med_time.strftime('%H:%M')}")
+        else:
+            st.warning("Please enter a valid medicine name.")
 
 # ------------------------------
 # Checklist column
