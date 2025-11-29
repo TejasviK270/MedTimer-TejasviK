@@ -17,14 +17,35 @@ except:
 st.set_page_config(page_title="MedTimer Companion", page_icon="💊", layout="wide")
 
 # ------------------------------
+# Styling
+# ------------------------------
+st.markdown("""
+<style>
+    html, body, [class*="css"] {
+        font-size: 18px;
+        background-color: #F0F8FF;
+        color: #004d40;
+    }
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        font-size: 18px;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+    }
+    .stTextInput>div>div>input {
+        font-size: 18px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------------------
 # Session state
 # ------------------------------
 if "medicines" not in st.session_state:
-    st.session_state.medicines = []  # list of dicts
+    st.session_state.medicines = []
 if "taken_today" not in st.session_state:
     st.session_state.taken_today = set()
-if "adherence_score" not in st.session_state:
-    st.session_state.adherence_score = 0
 if "motivational_quotes" not in st.session_state:
     st.session_state.motivational_quotes = [
         "Every dose taken is a step toward wellness.",
@@ -38,47 +59,15 @@ if "motivational_quotes" not in st.session_state:
         "You're not alone—MedTimer is here for you.",
         "Celebrate every dose taken!"
     ]
+if "medicine_options" not in st.session_state:
+    st.session_state.medicine_options = [
+        "Insulin", "Ibuprofen", "Indomethacin", "Inhaler", "Iron Supplement",
+        "Imodium", "Ivermectin", "Isosorbide", "Influenza Vaccine", "Isotretinoin"
+    ]
 
 # ------------------------------
 # Turtle graphics
 # ------------------------------
-def draw_smiley():
-    if not TURTLE_AVAILABLE:
-        return
-    screen = turtle.Screen()
-    screen.title("MedTimer: Great Adherence!")
-    t = turtle.Turtle()
-    t.speed(3)
-    t.pensize(3)
-
-    # Face
-    t.penup()
-    t.goto(0, -100)
-    t.pendown()
-    t.color("gold")
-    t.begin_fill()
-    t.circle(100)
-    t.end_fill()
-
-    # Eyes
-    t.penup()
-    t.goto(-30, 30)
-    t.pendown()
-    t.dot(20, "black")
-    t.penup()
-    t.goto(30, 30)
-    t.pendown()
-    t.dot(20, "black")
-
-    # Smile
-    t.penup()
-    t.goto(-40, -20)
-    t.setheading(-60)
-    t.pendown()
-    t.circle(50, 120)
-
-    t.hideturtle()
-
 def draw_trophy():
     if not TURTLE_AVAILABLE:
         return
@@ -141,35 +130,28 @@ def calculate_adherence():
     return int((taken / len(week_meds)) * 100)
 
 # ------------------------------
-# UI
+# Layout
 # ------------------------------
-st.title("MedTimer 💊 Daily Medicine Companion")
+st.title("💊 MedTimer — Daily Medicine Companion")
 st.write("Track your daily medicines, mark doses, and celebrate your adherence with friendly visuals.")
 
-col1, col2 = st.columns([1.2, 1.8])
+col_input, col_checklist, col_side = st.columns([1.2, 1.5, 1.3])
 
 # ------------------------------
 # Input column
 # ------------------------------
-with col1:
+with col_input:
     st.subheader("Add Medicine")
-    med_name = st.text_input("Medicine Name")
+    med_name = st.selectbox("Medicine Name", options=st.session_state.medicine_options)
     med_time = st.time_input("Scheduled Time", value=dt.time(9, 0))
     if st.button("Add to Schedule"):
-        if med_name.strip():
-            add_medicine(med_name.strip(), med_time)
-            st.success(f"Added {med_name} at {med_time.strftime('%H:%M')}")
-        else:
-            st.warning("Please enter a valid medicine name.")
-
-    st.markdown("---")
-    st.subheader("Motivational Tip")
-    st.info(random.choice(st.session_state.motivational_quotes))
+        add_medicine(med_name, med_time)
+        st.success(f"Added {med_name} at {med_time.strftime('%H:%M')}")
 
 # ------------------------------
 # Checklist column
 # ------------------------------
-with col2:
+with col_checklist:
     st.subheader("Today's Checklist")
     now = dt.datetime.now().time()
     today_meds = [m for m in st.session_state.medicines if m["date"] == dt.date.today()]
@@ -183,7 +165,7 @@ with col2:
             elif now > med["time"]:
                 status = "missed"
 
-            color = {"taken": "green", "upcoming": "yellow", "missed": "red"}[status]
+            color = {"taken": "green", "upcoming": "orange", "missed": "red"}[status]
             st.markdown(f"**{med['name']}** at {med['time'].strftime('%H:%M')} — "
                         f"<span style='color:{color};font-weight:bold'>{status.upper()}</span>",
                         unsafe_allow_html=True)
@@ -192,10 +174,12 @@ with col2:
                     mark_taken(med["name"])
                     st.success(f"{med['name']} marked as taken.")
 
-    st.markdown("---")
+# ------------------------------
+# Side column
+# ------------------------------
+with col_side:
     st.subheader("Weekly Adherence Score")
     score = calculate_adherence()
-    st.session_state.adherence_score = score
     st.metric("Adherence", f"{score}%")
 
     if score >= 80:
@@ -203,9 +187,12 @@ with col2:
         draw_trophy()
     elif score >= 50:
         st.info("👍 Good job! Keep going.")
-        draw_smiley()
     else:
         st.warning("⚠️ Let's aim for better consistency.")
+
+    st.markdown("---")
+    st.subheader("Motivational Tip")
+    st.info(random.choice(st.session_state.motivational_quotes))
 
 # ------------------------------
 # Footer
