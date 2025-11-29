@@ -100,7 +100,7 @@ if suggestions:
         st.success(f"Added {selected_med} at {med_time.strftime('%H:%M')}")
 else:
     st.info("Type at least 1–2 letters to see suggestions.")
-    ]
+    
 
 # ------------------------------
 # Turtle graphics
