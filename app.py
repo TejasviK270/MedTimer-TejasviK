@@ -5,90 +5,50 @@ import random
 import math
 import struct
 
-# -------------------------------------------------
-# CONFIG & STYLE
-# -------------------------------------------------
-st.set_page_config(page_title="MedTimer Companion", page_icon="Pill", layout="wide")
+st.set_page_config(page_title="MedTimer", page_icon="Pill", layout="wide")
 
 st.markdown("""
 <style>
-    body { background-color: #F0F8FF; color: #004d40; font-size: 18px; }
-    h1, h2, h3 { color: #00695C; }
-    .pill {
-        display: inline-block; padding: 4px 12px; border-radius: 999px;
-        font-weight: 600; color: white; margin-left: 8px;
-    }
-    .pill-green  { background: #2E7D32; }
-    .pill-yellow { background: #FBC02D; color: #1a1a1a; }
+    body {background:#F0F8FF; color:#004d40; font-size:18px;}
+    h1,h2,h3 {color:#00695C;}
+    .pill {padding:4px 12px; border-radius:999px; font-weight:600; color:white; margin-left:8px;}
+    .pill-green {background:#2E7D32;}
+    .pill-yellow {background:#FBC02D; color:#000;}
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------
-# SESSION STATE
-# -------------------------------------------------
-if "schedules" not in st.session_state:
-    st.session_state.schedules = []
-if "taken_events" not in st.session_state:
-    st.session_state.taken_events = set()
-if "reminder_minutes" not in st.session_state:
-    st.session_state.reminder_minutes = 15
+# Session state
+if "schedules" not in st.session_state: st.session_state.schedules = []
+if "taken_events" not in st.session_state: st.session_state.taken_events = set()
+if "reminder_minutes" not in st.session_state: st.session_state.reminder_minutes = 15
 
-# -------------------------------------------------
-# CONSTANTS
-# -------------------------------------------------
-COMMON_MEDICINES = sorted([
-    "Aspirin","Amoxicillin","Azithromycin","Atorvastatin","Acetaminophen","Albuterol",
-    "Ibuprofen","Insulin","Levothyroxine","Lisinopril","Losartan","Metformin",
-    "Omeprazole","Paracetamol","Prednisone","Sertraline","Vitamin D","Warfarin"
-])
-
+COMMON_MEDICINES = ["Aspirin","Ibuprofen","Paracetamol","Metformin","Vitamin D","Custom"]
 DAY_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+QUOTES = ["Every dose counts!","Keep going!","You're doing great!","Health first!"]
 
-QUOTES = [
-    "Every dose taken is a step toward wellness.",
-    "Consistency builds strength.",
-    "You're doing great—keep it up!",
-    "Health is the real wealth.",
-    "One dose at a time, you're healing.",
-]
+def weekday_name(d): return DAY_ORDER[d.weekday()]
+def key(date, name, time): return f"{date}|{name}|{time.strftime('%H:%M')}"
 
-# -------------------------------------------------
-# HELPERS
-# -------------------------------------------------
-def weekday_name(date_obj):
-    return DAY_ORDER[date_obj.weekday()]
-
-def event_key(date_obj, name, time_obj):
-    return f"{date_obj.isoformat()}|{name}|{time_obj.strftime('%H:%M')}"
-
-def mark_as_taken(date_obj, name, time_obj):
-    st.session_state.taken_events.add(event_key(date_obj, name, time_obj))
-    st.rerun()                                      # ONLY st.rerun() – never experimental
+def mark_taken(date, name, time):
+    st.session_state.taken_events.add(key(date, name, time))
+    st.rerun()
 
 def beep():
-    duration = 0.3
-    freq = 880
-    sample_rate = 44100
-    samples = int(duration * sample_rate)
-    frames = bytearray()
+    samples = int(0.3 * 44100)
+    data = bytearray()
     for i in range(samples):
-        t = i / sample_rate
-        value = int(32767 * 0.4 * math.sin(2 * math.pi * freq * t))
-        frames += struct.pack("<h", value)
-    wav = (
-        b"RIFF" + struct.pack("<I", 36 + len(frames)) + b"WAVE"
-        b"fmt " + struct.pack("<IHHIIHH", 16, 1, 1, sample_rate, sample_rate*2, 2, 16)
-        b"data" + struct.pack("<I", len(frames)) + frames
-    )
+        v = int(32767 * 0.4 * math.sin(2 * math.pi * 880 * i / 44100))
+        data += struct.pack("<h", v)
+    wav = b"RIFF" + struct.pack("<I",36+len(data)) + b"WAVEfmt " + struct.pack("<IHHIIHH",16,1,1,44100,88200,2,16) + b"data" + struct.pack("<I",len(data)) + data
     st.audio(wav, format="audio/wav", autoplay=True)
 
 def todays_events():
     today = dt.date.today()
     events = []
-    for sch in st.session_state.schedules:
-        if today >= sch["start_date"] and weekday_name(today) in sch["days_of_week"]:
-            for t in sch["times"]:
-                events.append({"date": today, "name": sch["name"], "time": t})
+    for s in st.session_state.schedules:
+        if today >= s["start_date"] and weekday_name(today) in s["days_of_week"]:
+            for t in s["times"]:
+                events.append({"name":s["name"], "time":t})
     return sorted(events, key=lambda x: x["time"])
 
 def weekly_adherence():
@@ -97,99 +57,73 @@ def weekly_adherence():
     total = taken = 0
     for i in range(7):
         d = monday + dt.timedelta(days=i)
-        for ev in [e for sch in st.session_state.schedules
-                   if d >= sch["start_date"] and weekday_name(d) in sch["days_of_week"]
-                   for e in [{"date":d, "name":sch["name"], "time":t} for t in sch["times"]]]:
-            total += 1
-            if event_key(d, ev["name"], ev["time"]) in st.session_state.taken_events:
-                taken += 1
-    return int(taken / total * 100) if total else 100
+        for s in st.session_state.schedules:
+            if d >= s["start_date"] and weekday_name(d) in s["days_of_week"]:
+                for t in s["times"]:
+                    total += 1
+                    if key(d, s["name"], t) in st.session_state.taken_events:
+                        taken += 1
+    return int(taken/total*100) if total else 100
 
-# -------------------------------------------------
-# SIDEBAR
-# -------------------------------------------------
+# Sidebar
 with st.sidebar:
     st.header("Settings")
-    st.session_state.reminder_minutes = st.slider(
-        "Reminder window (minutes before)", 1, 60, st.session_state.reminder_minutes
-    )
+    st.session_state.reminder_minutes = st.slider("Reminder before (min)",1,60,st.session_state.reminder_minutes)
 
-# -------------------------------------------------
-# MAIN UI
-# -------------------------------------------------
-st.title("Pill MedTimer — Your Daily Medicine Companion")
-
+# Main layout
+st.title("Pill MedTimer")
 c1, c2, c3 = st.columns([1.4, 1.8, 1.2])
 
-# ---------- ADD SCHEDULE ----------
 with c1:
-    st.subheader("Add new medicine")
-    choice = st.selectbox("Quick select or Custom", ["Custom"] + COMMON_MEDICINES)
-    name = st.text_input("Medicine name", value="" if choice=="Custom" else choice)
-    days = st.multiselect("Days of week", DAY_ORDER, default=[weekday_name(dt.date.today())])
-    doses = st.number_input("Doses per day", 1, 6, 1)
-    times = [st.time_input(f"Time #{i+1}", dt.time(9+i*3), key=f"t{i}") for i in range(doses)]
-    start = st.date_input("Start date", dt.date.today())
+    st.subheader("Add medicine")
+    choice = st.selectbox("Pick or type", ["Custom"]+COMMON_MEDICINES)
+    name = st.text_input("Name", "" if choice=="Custom" else choice)
+    days = st.multiselect("Days", DAY_ORDER, default=[weekday_name(dt.date.today())])
+    n = st.number_input("Doses/day",1,6,1)
+    times = [st.time_input(f"Time {i+1}", dt.time(9+i*3), key=f"t{i}") for i in range(n)]
+    start = st.date_input("Start", dt.date.today())
 
-    if st.button("Add schedule"):
+    if st.button("Add"):
         if name.strip() and days:
-            st.session_state.schedules.append({
-                "name": name.strip(),
-                "days_of_week": days,
-                "times": times,
-                "start_date": start
-            })
-            st.success(f"Added {name.strip()}!")
+            st.session_state.schedules.append({"name":name.strip(),"days_of_week":days,"times":times,"start_date":start})
+            st.success("Added!")
             st.rerun()
         else:
-            st.warning("Name & days required")
+            st.warning("Fill name & days")
 
-# ---------- TODAY'S CHECKLIST ----------
 with c2:
-    st.subheader("Today's doses")
+    st.subheader("Today")
     now = dt.datetime.now()
     events = todays_events()
-
     if not events:
-        st.info("No doses today — enjoy your day!")
+        st.info("No doses today")
     else:
-        for ev in events:
-            key = event_key(ev["date"], ev["name"], ev["time"])
-            taken = key in st.session_state.taken_events
-            dose_time = dt.datetime.combine(ev["date"], ev["time"])
-            mins_left = (dose_time - now).total_seconds() / 60
+        for e in events:
+            k = key(dt.date.today(), e["name"], e["time"])
+            taken = k in st.session_state.taken_events
+            mins = (dt.datetime.combine(dt.date.today(), e["time"]) - now).total_seconds()/60
 
-            colA, colB, colC = st.columns([4,1,1])
-            with colA:
-                status = "Taken" if taken else "Upcoming"
-                st.write(f"**{ev['time'].strftime('%H:%M')}** – {ev['name']}  {status}")
-            with colB:
-                if 0 < mins_left <= st.session_state.reminder_minutes:
+            a,b,c = st.columns([4,1,1])
+            with a:
+                st.write(f"**{e['time'].strftime('%H:%M')}** – {e['name']}  {'Taken' if taken else 'Upcoming'}")
+            with b:
+                if 0 < mins <= st.session_state.reminder_minutes:
                     beep()
-                    st.markdown("<span class='pill pill-yellow'>REMINDER</span>", unsafe_allow_html=True)
+                    st.markdown("<span class='pill pill-yellow'>NOW</span>", unsafe_allow_html=True)
                 elif taken:
                     st.markdown("<span class='pill pill-green'>DONE</span>", unsafe_allow_html=True)
-            with colC:
-                if not taken and st.button("Taken", key=key):
-                    mark_as_taken(ev["date"], ev["name"], ev["time"])
+            with c:
+                if not taken and st.button("Taken", key=k):
+                    mark_taken(dt.date.today(), e["name"], e["time"])
 
-# ---------- WEEKLY STATS ----------
 with c3:
-    st.subheader("This week")
+    st.subheader("Week")
     adh = weekly_adherence()
     st.metric("Adherence", f"{adh}%")
-
     if adh >= 95:
-        st.success("Outstanding! Trophy")
+        st.success("Perfect week! Trophy")
         st.balloons()
-    elif adh >= 80:
-        st.info("Great job! Keep it up")
-    else:
-        st.warning("Room for improvement")
-
     st.caption(random.choice(QUOTES))
-
-    if st.button("Reset all taken marks"):
+    if st.button("Reset week"):
         st.session_state.taken_events = set()
-        st.success("Reset done")
         st.rerun()
