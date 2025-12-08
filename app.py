@@ -1,17 +1,19 @@
 import streamlit as st
 import datetime as dt
-import random, math, struct
+import random
+import math
+import struct
 
-# === Page Config & Style ===
+# === Page Setup ===
 st.set_page_config(page_title="MedTimer", page_icon="Pill", layout="wide")
 st.markdown("""
 <style>
-    .big-title {font-size: 3rem !important; color: #00695c; text-align: center;}
-    .pill {padding: 10px 20px; border-radius: 50px; font-weight: bold; color: white; margin: 5px;}
+    .big-title {font-size: 3rem !important; color: #00695c; text-align: center; margin-bottom: 0;}
+    .pill {padding: 10px 20px; border-radius: 50px; font-weight: bold; color: white;}
     .pill-green {background: #2e7d32;}
     .pill-yellow {background: #f9a825; color: black;}
     .pill-red {background: #c62828;}
-    .dose-card {background: #e8f5e9; padding: 16px; border-radius: 15px; border-left: 6px solid #4caf50; margin: 12px 0;}
+    .dose-card {background: #e8f5e9; padding: 18px; border-radius: 15px; margin: 12px 0; border-left: 6px solid #4caf50;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -23,7 +25,7 @@ if "taken_events" not in st.session_state:
 if "reminder_min" not in st.session_state:
     st.session_state.reminder_min = 15
 if "temp_doses" not in st.session_state:
-    st.session_state.temp_doses = [dt.time(8, 0)]  # Start with 1 dose
+    st.session_state.temp_doses = [dt.time(8, 0)]  # Start with one dose
 
 # === Helper Functions ===
 def key(date, name, time_obj):
@@ -31,17 +33,22 @@ def key(date, name, time_obj):
 
 def mark_taken(d, n, t):
     st.session_state.taken_events.add(key(d, n, t))
-    st.success(f"Marked: {n} at {t.strftime('%I:%M %p')} as taken!")
+    st.toast(f"Marked: {n} at {t.strftime('%I:%M %p')} as taken!", icon="Success")
     st.rerun()
 
 def beep():
     try:
-        s, f, dur = 44100, 880, 0.4
-        data = bytearray([int(32767 * 0.5 * math.sin(2 * math.pi * f * i / s)) for i in range(int(s * dur))])
-        for i in range(len(data)):
-            data[i:i] = struct.pack("<h", data[i])
-        header = (b"RIFF" + struct.pack("<I", 36+len(data)) + b"WAVEfmt " +
-                  struct.pack("<IHHIIHH", 16, 1, 1, s, s*2, 2, 16) + b"data" + struct.pack("<I", len(data)))
+        sr, freq, dur = 44100, 880, 0.4
+        samples = int(sr * dur)
+        data = bytearray()
+        for i in range(samples):
+            val = int(32767 * 0.5 * math.sin(2 * math.pi * freq * i / sr))
+            data += struct.pack("<h", val)
+        header = (
+            b"RIFF" + struct.pack("<I", 36 + len(data)) + b"WAVEfmt " +
+            struct.pack("<IHHIIHH", 16, 1, 1, sr, sr*2, 2, 16) +
+            b"data" + struct.pack("<I", len(data))
+        )
         st.audio(header + data, format="audio/wav", autoplay=True)
     except:
         pass
@@ -51,77 +58,78 @@ def get_today_events():
     weekday = today.strftime("%A")
     events = []
     for s in st.session_state.schedules:
-        if today >= s.get("start_date", today) and any(w in s["days"] for w in [weekday, weekday[:3]]):
-            for t in s["times"]:
-                events.append({"name": s["name"], "time": t})
+        if today >= s.get("start_date", today):
+            if any(w in s["days"] for w in [weekday, weekday[:3]]):
+                for t in s["times"]:
+                    events.append({"name": s["name"], "time": t})
     return sorted(events, key=lambda x: x["time"])
 
 # === Sidebar ===
 with st.sidebar:
     st.header("Settings")
-    st.session_state.reminder_min = st.slider("Reminder (minutes before)", 1, 60, st.session_state.reminder_min)
+    st.session_state.reminder_min = st.slider("Reminder before (min)", 1, 60, st.session_state.reminder_min)
     if st.button("Clear All Taken Records"):
         st.session_state.taken_events = set()
         st.rerun()
 
-# === Main Layout ===
+# === Main Header ===
 st.markdown("<h1 class='big-title'>Pill MedTimer</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#555; font-size:1.2rem;'>Take control of your medication schedule</p>", unsafe_allow_html=True)
+st.caption("<p style='text-align:center; color:#555; font-size:1.1rem;'>Your simple & reliable medication reminder</p>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1.7, 2, 1.2])
 
-# === Add Medicine (No st.button inside form!) ===
+# === Add Medicine ===
 with col1:
     st.subheader("Add New Medicine")
 
-    name = st.text_input("Medicine Name", placeholder="e.g., Aspirin 81mg")
+    name = st.text_input("Medicine Name", placeholder="e.g., Vitamin D 1000 IU")
     days = st.multiselect("Repeat on", 
         ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
-        default=["Monday"])
+        default=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
 
     st.write("**Dose Times**")
-    for i, t in enumerate(st.session_state.temp_doses):
-        col1a, col1b = st.columns([3, 1])
-        with col1a:
-            new_time = st.time_input(f"Dose {i+1}", value=t, key=f"dose_time_{i}")
+    for i in range(len(st.session_state.temp_doses)):
+        col_a, col_b = st.columns([3, 1])
+        with col_a:
+            new_time = st.time_input(f"Dose {i+1}", value=st.session_state.temp_doses[i], key=f"time_input_{i}_{st.rerun}")
             st.session_state.temp_doses[i] = new_time
-        with col1b:
-            if st.button("Remove", key=f"del_{i}"):
+        with col_b:
+            if st.button("Remove", key=f"remove_dose_{i}"):
                 st.session_state.temp_doses.pop(i)
                 st.rerun()
 
-    if st.button("Add Another Dose Time"):
+    if st.button("Add Another Dose"):
         st.session_state.temp_doses.append(dt.time(18, 0))
         st.rerun()
 
-    if st.button("Save Medicine Schedule", type="primary"):
-        if name and st.session_state.temp_doses:
+    if st.button("Save Medicine", type="primary"):
+        if name.strip() and st.session_state.temp_doses:
             st.session_state.schedules.append({
-                "name": name,
+                "name": name.strip(),
                 "days": days,
                 "times": st.session_state.temp_doses.copy(),
                 "start_date": dt.date.today()
             })
             st.success(f"{name} added with {len(st.session_state.temp_doses)} dose(s)!")
-            st.session_state.temp_doses = [dt.time(8, 0)]  # Reset to 1 dose
+            st.session_state.temp_doses = [dt.time(8, 0)]  # Reset
             st.rerun()
         else:
             st.error("Please enter a name and at least one dose time.")
 
 # === Today's Schedule ===
 with col2:
-    st.subheader(f"Today's Doses – {dt.date.today():%A, %b %d}")
+    st.subheader(f"Today – {dt.date.today():%A, %b %d}")
     events = get_today_events()
     now = dt.datetime.now()
 
     if not events:
-        st.info("No medications scheduled today.")
+        st.info("No doses scheduled today. Enjoy your rest!")
     else:
-        for e in events:
+        for idx, e in enumerate(events):
             event_dt = dt.datetime.combine(dt.date.today(), e["time"])
             mins_until = (event_dt - now).total_seconds() / 60
-            k = key(dt.date.today(), e["name"], e["time"])
-            taken = k in st.session_state.taken_events
+            event_key = key(dt.date.today(), e["name"], e["time"])
+            is_taken = event_key in st.session_state.taken_events
 
             st.markdown("<div class='dose-card'>", unsafe_allow_html=True)
             a, b, c = st.columns([2.5, 2, 1.8])
@@ -131,7 +139,7 @@ with col2:
                 st.write(f"**{e['name']}**")
 
             with b:
-                if taken:
+                if is_taken:
                     st.markdown("<span class='pill pill-green'>Taken</span>", unsafe_allow_html=True)
                 elif mins_until <= 0:
                     st.markdown("<span class='pill pill-red'>Missed</span>", unsafe_allow_html=True)
@@ -140,19 +148,20 @@ with col2:
                     st.markdown("<span class='pill pill-yellow'>TAKE NOW</span>", unsafe_allow_html=True)
                 else:
                     mins = int(mins_until)
-                    st.caption(f"In {mins}m" if mins < 60 else f"In {mins//60}h {mins%60}m")
+                    st.caption(f"Due in {mins}m" if mins < 60 else f"Due in {mins//60}h {mins%60}m")
 
             with c:
-                if taken:
+                if is_taken:
                     st.success("Taken")
                 else:
-                    if st.button("Mark Taken", key=k, type="primary"):
+                    # Unique key using index + event details
+                    btn_key = f"take_{idx}_{e['name']}_{e['time'].strftime('%H%M')}"
+                    if st.button("Mark Taken", key=btn_key, type="primary"):
                         mark_taken(dt.date.today(), e["name"], e["time"])
 
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("---")
 
-# === Weekly Adherence ===
+# === Weekly Stats ===
 with col3:
     st.subheader("7-Day Adherence")
     expected = taken = 0
@@ -173,18 +182,23 @@ with col3:
 
     adherence = int(100 * taken / expected) if expected > 0 else 100
 
-    st.metric("Adherence", f"{adherence}%")
+    st.metric("Adherence Rate", f"{adherence}%")
     if adherence >= 95:
         st.balloons()
     elif adherence >= 80:
-        st.success("Great job!")
+        st.success("Excellent!")
     elif adherence >= 60:
-        st.warning("Keep going")
+        st.warning("Keep going!")
     else:
         st.error("Let's improve!")
 
-    st.caption(random.choice(["Every dose counts!", "You're doing great!", "Stay consistent!"]))
+    st.caption(random.choice([
+        "Every dose counts!",
+        "You're doing great!",
+        "Consistency is key!",
+        "Proud of your effort!"
+    ]))
 
-    if st.button("Reset All Data"):
+    if st.button("Reset Records"):
         st.session_state.taken_events = set()
         st.rerun()
