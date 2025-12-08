@@ -64,8 +64,8 @@ with c3:
     st.subheader("This week")
     total = taken = len(st.session_state.taken_events), len([1 for s in st.session_state.schedules for t in s["times"] for d in range(7) if (dt.date.today()-dt.timedelta(d)).weekday() < 7])
     adh = 100 
-    if total==0 
-    else int(taken/total*100)
+    if total==0:
+        else int(taken/total*100)
     st.metric("Adherence", f"{adh}%")
     if adh >= 95: st.balloons()
     st.caption(random.choice(["Keep going!","Great job!","Every dose counts!"]))
