@@ -173,7 +173,8 @@ with col3:
 
     st.metric("Adherence", f"{adherence}%")
     if adherence >= 95:
-        st.balloons()
+        st.success("🎉 Confetti! Excellent adherence!")
+        st.write("✨✨✨✨✨✨✨✨✨✨")
     elif adherence >= 80:
         st.success("Great job!")
     elif adherence >= 60:
