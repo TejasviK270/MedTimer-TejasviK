@@ -210,6 +210,6 @@ st.caption(random.choice([
         "Health first."
     ]))
 
-    if st.button("Reset all records"):
+if st.button("Reset all records"):
         st.session_state.taken_events = set()
         st.rerun()
