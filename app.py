@@ -53,10 +53,9 @@ def get_today_events():
     weekday = today.strftime("%A")
     events = []
     for s in st.session_state.schedules:
-        if today >= s.get("start_date", today):
-            if any(day in s["days"] for day in [weekday, weekday[:3]]):
-                for t in s["times"]:
-                    events.append({"name": s["name"], "time": t})
+        if any(day in s["days"] for day in [weekday, weekday[:3]]):
+            for t in s["times"]:
+                events.append({"name": s["name"], "time": t})
     return sorted(events, key=lambda x: x["time"])
 
 def status_for_event(event_time, now, reminder_min):
@@ -170,7 +169,7 @@ with col2:
 
         events = []
         for s in st.session_state.schedules:
-            if day >= s.get("start_date", day) and any(w in s["days"] for w in [wd, wd[:3]]):
+            if any(w in s["days"] for w in [wd, wd[:3]]):
                 for t in s["times"]:
                     events.append({"name": s["name"], "time": t})
 
@@ -210,7 +209,7 @@ with col3:
         prefix = f"{day}|"
 
         for s in st.session_state.schedules:
-            if day >= s.get("start_date", day) and any(w in s["days"] for w in [wd, wd[:3]]):
+            if any(w in s["days"] for w in [wd, wd[:3]]):
                 expected += len(s["times"])
 
         for tk in st.session_state.taken_events:
@@ -230,4 +229,8 @@ with col3:
     else:
         st.error("Let's get back on track!")
 
-   
+    st.write("😊 You're doing amazing!")
+
+    if st.button("Reset All Records"):
+        st.session_state.taken_events = set()
+       
