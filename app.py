@@ -274,16 +274,16 @@ with col2:
                 mark_taken(dt.date.today(), event["name"], event["time"], checked)
                 st.rerun()  # Immediate update across app
 
-            # Visual feedback with color codes
+            # Visual feedback with color codes (no text mentions)
             if checked:
-                st.success("✅ Taken (Green)", icon="💊")
+                st.success("✅ Taken", icon="💊")
             elif status == "missed":
-                st.error("❌ Missed (Red)")
+                st.error("❌ Missed")
             elif status == "due":
                 beep()  # Audio alert
-                st.warning("🔔 Due now! (Yellow)", icon="⚠️")
+                st.warning("🔔 Due now!", icon="⚠️")
             else:
-                st.info("⏳ Upcoming (Yellow)", icon="🕐")
+                st.warning("⏳ Upcoming", icon="🕐")
 
 # === Weekly View ===
 with col3:
