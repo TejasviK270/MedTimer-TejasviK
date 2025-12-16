@@ -221,4 +221,4 @@ with col2:
                 )
 
                 if taken:
-                    show_status("Taken",
+                    show_status("Taken"),
