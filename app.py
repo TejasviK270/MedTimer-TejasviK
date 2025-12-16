@@ -123,7 +123,7 @@ with col1:
         else:
             st.error("Please enter a name and at least one time")
 
-# === Today's Doses: Color-coded checklist ===
+# === Today's Checklist ===
 with col2:
     st.subheader(f"Today – {dt.date.today():%A, %b %d}")
     events = get_today_events()
@@ -141,10 +141,9 @@ with col2:
             checked = st.checkbox(
                 label=f"{e['name']} — {e['time'].strftime('%I:%M %p')}",
                 value=taken,
-                key=f"chk_{idx}_{key}"
+                key=f"chk_today_{idx}_{key}"
             )
 
-            # Color-coded status display
             if taken:
                 st.success("Taken")
             elif status == "missed":
@@ -156,11 +155,50 @@ with col2:
                 mins = int(mins_until)
                 st.info(f"Upcoming in {mins}m" if mins < 60 else f"Upcoming in {mins//60}h {mins%60}m")
 
-            # Update taken status
             if checked != taken:
                 mark_taken(dt.date.today(), e["name"], e["time"], checked)
-                
-# === Weekly Stats: Adherence score + turtle smiley ===
+
+# === Weekly Checklist ===
+with col2:
+    st.subheader("Weekly Checklist (last 7 days)")
+    today = dt.date.today()
+
+    for i in range(7):
+        day = today - dt.timedelta(days=i)
+        wd = day.strftime("%A")
+        st.write(f"**{wd}, {day:%b %d}**")
+
+        events = []
+        for s in st.session_state.schedules:
+            if day >= s.get("start_date", day) and any(w in s["days"] for w in [wd, wd[:3]]):
+                for t in s["times"]:
+                    events.append({"name": s["name"], "time": t})
+
+        if not events:
+            st.caption("No doses scheduled.")
+        else:
+            for idx, e in enumerate(events):
+                key = unique_key(day, e["name"], e["time"])
+                taken = key in st.session_state.taken_events
+
+                checked = st.checkbox(
+                    label=f"{e['name']} — {e['time'].strftime('%I:%M %p')}",
+                    value=taken,
+                    key=f"chk_week_{day}_{idx}_{key}"
+                )
+
+                if taken:
+                    st.success("Taken")
+                else:
+                    if day < today:
+                        st.error("Missed")
+                    else:
+                        st.info("Scheduled")
+
+                if checked != taken:
+                    mark_taken(day, e["name"], e["time"], checked)
+
+# === Weekly Stats: Adherence score ===
 with col3:
     st.subheader("7-day adherence")
     expected = taken = 0
@@ -182,32 +220,4 @@ with col3:
     adherence = int(100 * taken / expected) if expected > 0 else 100
     st.metric("Adherence", f"{adherence}%")
 
-    # Visual progress (no emojis, no balloons)
     if expected > 0:
-        st.progress(min(adherence, 100) / 100.0)
-    else:
-        st.info("No scheduled doses in the last 7 days.")
-
-    # Encouragement without emojis
-    if adherence >= 95:
-        st.success("Excellent adherence!")
-    elif adherence >= 80:
-        st.success("Great job!")
-    elif adherence >= 60:
-        st.warning("Keep going")
-    else:
-        st.error("Let's get back on track!")
-
-  # ACC-style smiley emoji
-st.write("😊 You're doing amazing!")
-
-st.caption(random.choice([
-        "Every dose counts.",
-        "Consistency is key.",
-        "Small steps, big results.",
-        "Health first."
-    ]))
-
-if st.button("Reset all records"):
-        st.session_state.taken_events = set()
-        st.rerun()
