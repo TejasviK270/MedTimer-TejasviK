@@ -21,15 +21,19 @@ if "temp_doses" not in st.session_state:
 def unique_key(date, name, time_obj):
     return f"{date}|{name}|{time_obj.strftime('%H:%M')}"
 
-def mark_taken(date, name, time_obj):
+def mark_taken(date, name, time_obj, value: bool):
     key = unique_key(date, name, time_obj)
-    st.session_state.taken_events.add(key)
-    st.success(f"Taken: {name} at {time_obj.strftime('%I:%M %p')}")
+    if value:
+        st.session_state.taken_events.add(key)
+        st.toast(f"Marked taken: {name} at {time_obj.strftime('%I:%M %p')}")
+    else:
+        st.session_state.taken_events.discard(key)
+        st.toast(f"Unmarked: {name} at {time_obj.strftime('%I:%M %p')}")
     st.rerun()
 
 def beep():
     try:
-        sr, freq, dur = 44100, 880, 0.35
+        sr, freq, dur = 44100, 880, 0.25
         samples = int(sr * dur)
         data = bytearray()
         for i in range(samples):
@@ -55,6 +59,15 @@ def get_today_events():
                     events.append({"name": s["name"], "time": t})
     return sorted(events, key=lambda x: x["time"])
 
+def status_for_event(event_time, now, reminder_min):
+    mins_until = (event_time - now).total_seconds() / 60
+    if mins_until <= 0:
+        return "missed", mins_until
+    elif mins_until <= reminder_min:
+        return "due", mins_until
+    else:
+        return "upcoming", mins_until
+
 # === Sidebar ===
 with st.sidebar:
     st.header("Settings")
@@ -64,22 +77,24 @@ with st.sidebar:
         st.rerun()
 
 # === Header ===
-st.title("💊 Pill MedTimer")
-st.caption("Never miss a dose again!")
+st.title("Pill MedTimer")
+st.caption("Never miss a dose again.")
 
-col1, col2, col3 = st.columns([1.7, 2, 1.2])
+col1, col2, col3 = st.columns([1.7, 2, 1.3])
 
 # === Add Medicine ===
 with col1:
-    st.subheader("Add New Medicine")
+    st.subheader("Add new medicine")
 
-    name = st.text_input("Medicine Name", placeholder="e.g., Metformin 500mg")
+    name = st.text_input("Medicine name", placeholder="e.g., Metformin 500mg")
 
-    days = st.multiselect("Repeat on days",
-        ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
-        default=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+    days = st.multiselect(
+        "Repeat on days",
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        default=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    )
 
-    st.write("**Dose Times**")
+    st.write("Dose times")
     for i in range(len(st.session_state.temp_doses)):
         col_a, col_b = st.columns([3, 1])
         with col_a:
@@ -90,11 +105,11 @@ with col1:
                 st.session_state.temp_doses.pop(i)
                 st.rerun()
 
-    if st.button("Add Another Dose Time"):
+    if st.button("Add another dose time"):
         st.session_state.temp_doses.append(dt.time(18, 0))
         st.rerun()
 
-    if st.button("Save Medicine Schedule", type="primary"):
+    if st.button("Save medicine schedule", type="primary"):
         if name.strip() and st.session_state.temp_doses:
             st.session_state.schedules.append({
                 "name": name.strip(),
@@ -106,9 +121,9 @@ with col1:
             st.session_state.temp_doses = [dt.time(8, 0)]  # Reset to 1 dose
             st.rerun()
         else:
-            st.error("Please enter name and at least one time")
+            st.error("Please enter a name and at least one time")
 
-# === Today's Doses ===
+# === Today's Doses: Color-coded checklist ===
 with col2:
     st.subheader(f"Today – {dt.date.today():%A, %b %d}")
     events = get_today_events()
@@ -119,40 +134,37 @@ with col2:
     else:
         for idx, e in enumerate(events):
             event_dt = dt.datetime.combine(dt.date.today(), e["time"])
-            mins_until = (event_dt - now).total_seconds() / 60
+            status, mins_until = status_for_event(event_dt, now, st.session_state.reminder_min)
             key = unique_key(dt.date.today(), e["name"], e["time"])
             taken = key in st.session_state.taken_events
 
-            with st.container():
-                a, b, c = st.columns([2.8, 2, 1.8])
-
-                with a:
-                    st.write(f"**{e['time'].strftime('%I:%M %p')}**")
-                    st.write(f"**{e['name']}**")
-
-                with b:
-                    if taken:
-                        st.success("Taken")
-                    elif mins_until <= 0:
-                        st.error("Missed")
-                    elif mins_until <= st.session_state.reminder_min:
-                        beep()
-                        st.warning("TAKE NOW")
+            # Checklist row
+            left, mid, right = st.columns([2.6, 2.2, 2.2])
+            with left:
+                checked = st.checkbox(
+                    label=f"{e['name']} — {e['time'].strftime('%I:%M %p')}",
+                    value=taken,
+                    key=f"chk_{idx}_{key}"
+                )
+            with mid:
+                if status == "missed":
+                    st.error("Missed")
+                elif status == "due":
+                    st.warning("Due now")
+                    beep()
+                else:
+                    mins = int(mins_until)
+                    st.info(f"In {mins}m" if mins < 60 else f"In {mins//60}h {mins%60}m")
+            with right:
+                if checked != taken:
+                    if checked:
+                        mark_taken(dt.date.today(), e["name"], e["time"], True)
                     else:
-                        mins = int(mins_until)
-                        st.caption(f"In {mins}m" if mins < 60 else f"In {mins//60}h {mins%60}m")
+                        mark_taken(dt.date.today(), e["name"], e["time"], False)
 
-                with c:
-                    if taken:
-                        st.write("✔️")
-                    else:
-                        btn_key = f"taken_btn_{idx}_{e['name'].replace(' ', '_')}_{e['time'].strftime('%H%M')}"
-                        if st.button("Mark Taken", key=btn_key, type="primary"):
-                            mark_taken(dt.date.today(), e["name"], e["time"])
-
-# === Weekly Stats ===
+# === Weekly Stats: Adherence score + turtle smiley ===
 with col3:
-    st.subheader("7-Day Adherence")
+    st.subheader("7-day adherence")
     expected = taken = 0
     today = dt.date.today()
 
@@ -170,11 +182,17 @@ with col3:
                 taken += 1
 
     adherence = int(100 * taken / expected) if expected > 0 else 100
-
     st.metric("Adherence", f"{adherence}%")
+
+    # Visual progress (no emojis, no balloons)
+    if expected > 0:
+        st.progress(min(adherence, 100) / 100.0)
+    else:
+        st.info("No scheduled doses in the last 7 days.")
+
+    # Encouragement without emojis
     if adherence >= 95:
-        st.success("🎉 Confetti! Excellent adherence!")
-        st.write("✨✨✨✨✨✨✨✨✨✨")
+        st.success("Excellent adherence!")
     elif adherence >= 80:
         st.success("Great job!")
     elif adherence >= 60:
@@ -182,13 +200,23 @@ with col3:
     else:
         st.error("Let's get back on track!")
 
+    # Turtle smiley (ASCII art, not an emoji)
+    st.text(
+        "   __     \n"
+        "  /  \\__  \n"
+        " /_/\\___\\ \n"
+        " \\ \\/ _/  \n"
+        "  \\__/    \n"
+        "  (•‿•)    "
+    )
+
     st.caption(random.choice([
-        "Every dose counts!",
-        "You're doing amazing!",
-        "Consistency is key!",
-        "Health first!"
+        "Every dose counts.",
+        "Consistency is key.",
+        "Small steps, big results.",
+        "Health first."
     ]))
 
-    if st.button("Reset All Records"):
+    if st.button("Reset all records"):
         st.session_state.taken_events = set()
         st.rerun()
