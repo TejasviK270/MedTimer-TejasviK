@@ -138,30 +138,28 @@ with col2:
             key = unique_key(dt.date.today(), e["name"], e["time"])
             taken = key in st.session_state.taken_events
 
-            # Checklist row
-            left, mid, right = st.columns([2.6, 2.2, 2.2])
-            with left:
-                checked = st.checkbox(
-                    label=f"{e['name']} — {e['time'].strftime('%I:%M %p')}",
-                    value=taken,
-                    key=f"chk_{idx}_{key}"
-                )
-            with mid:
-                if status == "missed":
-                    st.error("Missed")
-                elif status == "due":
-                    st.warning("Due now")
-                    beep()
-                else:
-                    mins = int(mins_until)
-                    st.info(f"In {mins}m" if mins < 60 else f"In {mins//60}h {mins%60}m")
-            with right:
-                if checked != taken:
-                    if checked:
-                        mark_taken(dt.date.today(), e["name"], e["time"], True)
-                    else:
-                        mark_taken(dt.date.today(), e["name"], e["time"], False)
+            checked = st.checkbox(
+                label=f"{e['name']} — {e['time'].strftime('%I:%M %p')}",
+                value=taken,
+                key=f"chk_{idx}_{key}"
+            )
 
+            # Color-coded status display
+            if taken:
+                st.success("Taken")
+            elif status == "missed":
+                st.error("Missed")
+            elif status == "due":
+                st.warning("Due now")
+                beep()
+            else:
+                mins = int(mins_until)
+                st.info(f"Upcoming in {mins}m" if mins < 60 else f"Upcoming in {mins//60}h {mins%60}m")
+
+            # Update taken status
+            if checked != taken:
+                mark_taken(dt.date.today(), e["name"], e["time"], checked)
+                
 # === Weekly Stats: Adherence score + turtle smiley ===
 with col3:
     st.subheader("7-day adherence")
