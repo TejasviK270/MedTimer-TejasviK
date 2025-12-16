@@ -198,3 +198,14 @@ with col2:
         st.write(f"**{day.strftime('%A')}, {day:%b %d}**")
 
         day_events = get_events_for_day(day)
+
+        if not day_events:
+            st.caption("No doses scheduled.")
+        else:
+            for jdx, e in enumerate(day_events):
+                key = unique_key(day, e["name"], e["time"])
+                taken = key in st.session_state.taken_events
+                med_color = get_medicine_color(e["name"])
+
+                checked = st.checkbox(
+                    label=f"{e['name']} — {e['time'].
