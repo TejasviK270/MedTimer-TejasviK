@@ -5,19 +5,7 @@ import math
 import struct
 
 # === Page Setup ===
-st.set_page_config(page_title="MedTimer", page_icon="Pill", layout="wide")
-
-# Beautiful styling
-st.markdown("""
-<style>
-    .big-title {font-size: 3rem !important; color: #00695c; text-align: center; margin: 20px 0;}
-    .pill {padding: 10px 20px; border-radius: 50px; font-weight: bold; color: white; display: inline-block;}
-    .pill-green {background: #2e7d32;}
-    .pill-yellow {background: #f9a825; color: black;}
-    .pill-red {background: #c62828;}
-    .dose-card {background: #e8f5e9; padding: 18px; border-radius: 15px; margin: 12px 0; border-left: 6px solid #4caf50;}
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="MedTimer", page_icon="💊", layout="wide")
 
 # === Session State ===
 if "schedules" not in st.session_state:
@@ -76,8 +64,8 @@ with st.sidebar:
         st.rerun()
 
 # === Header ===
-st.markdown("<h1 class='big-title'>Pill MedTimer</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#555;'>Never miss a dose again!</p>", unsafe_allow_html=True)
+st.title("💊 Pill MedTimer")
+st.caption("Never miss a dose again!")
 
 col1, col2, col3 = st.columns([1.7, 2, 1.2])
 
@@ -135,34 +123,32 @@ with col2:
             key = unique_key(dt.date.today(), e["name"], e["time"])
             taken = key in st.session_state.taken_events
 
-            st.markdown("<div class='dose-card'>", unsafe_allow_html=True)
-            a, b, c = st.columns([2.8, 2, 1.8])
+            with st.container():
+                a, b, c = st.columns([2.8, 2, 1.8])
 
-            with a:
-                st.write(f"**{e['time'].strftime('%I:%M %p')}**")
-                st.write(f"**{e['name']}**")
+                with a:
+                    st.write(f"**{e['time'].strftime('%I:%M %p')}**")
+                    st.write(f"**{e['name']}**")
 
-            with b:
-                if taken:
-                    st.markdown("<span class='pill pill-green'>Taken</span>", unsafe_allow_html=True)
-                elif mins_until <= 0:
-                    st.markdown("<span class='pill pill-red'>Missed</span>", unsafe_allow_html=True)
-                elif mins_until <= st.session_state.reminder_min:
-                    beep()
-                    st.markdown("<span class='pill pill-yellow'>TAKE NOW</span>", unsafe_allow_html=True)
-                else:
-                    mins = int(mins_until)
-                    st.caption(f"In {mins}m" if mins < 60 else f"In {mins//60}h {mins%60}m")
+                with b:
+                    if taken:
+                        st.success("Taken")
+                    elif mins_until <= 0:
+                        st.error("Missed")
+                    elif mins_until <= st.session_state.reminder_min:
+                        beep()
+                        st.warning("TAKE NOW")
+                    else:
+                        mins = int(mins_until)
+                        st.caption(f"In {mins}m" if mins < 60 else f"In {mins//60}h {mins%60}m")
 
-            with c:
-                if taken:
-                    st.write("Taken")
-                else:
-                    btn_key = f"taken_btn_{idx}_{e['name'].replace(' ', '_')}_{e['time'].strftime('%H%M')}"
-                    if st.button("Mark Taken", key=btn_key, type="primary"):
-                        mark_taken(dt.date.today(), e["name"], e["time"])
-
-            st.markdown("</div>", unsafe_allow_html=True)
+                with c:
+                    if taken:
+                        st.write("✔️")
+                    else:
+                        btn_key = f"taken_btn_{idx}_{e['name'].replace(' ', '_')}_{e['time'].strftime('%H%M')}"
+                        if st.button("Mark Taken", key=btn_key, type="primary"):
+                            mark_taken(dt.date.today(), e["name"], e["time"])
 
 # === Weekly Stats ===
 with col3:
