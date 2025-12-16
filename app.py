@@ -222,4 +222,4 @@ with col2:
 
                 if taken:
                     show_status("Taken", med_color)
-                else
+                else:
