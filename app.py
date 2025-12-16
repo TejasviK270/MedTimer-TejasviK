@@ -220,4 +220,4 @@ with col3:
     adherence = int(100 * taken / expected) if expected > 0 else 100
     st.metric("Adherence", f"{adherence}%")
 
-    if expected > 0:
+        if expected > 0:
