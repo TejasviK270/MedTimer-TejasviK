@@ -57,15 +57,21 @@ For cloud deployment, push the code to a public GitHub repository and head to St
 
 <img width="1495" height="478" alt="image" src="https://github.com/user-attachments/assets/2c7ace24-de17-4c07-a322-2fbc7016fc37" />
 
+
 <img width="472" height="563" alt="image" src="https://github.com/user-attachments/assets/01b8e137-4828-48d4-a1e6-794e609147ed" />
+
 
 <img width="475" height="156" alt="image" src="https://github.com/user-attachments/assets/30b29ba0-00a9-4853-ba64-78850f9d87c6" />
 
+
 <img width="533" height="226" alt="image" src="https://github.com/user-attachments/assets/f0e3339b-4c19-4562-b9e6-a2f615670b42" />
+
 
 <img width="464" height="755" alt="image" src="https://github.com/user-attachments/assets/fc18a5b3-9a17-443a-b088-30122b391c7c" />
 
+
 <img width="286" height="438" alt="image" src="https://github.com/user-attachments/assets/f2840fb7-8e00-446a-8b2b-fa8271f034d0" />
+
 
 <img width="1473" height="138" alt="image" src="https://github.com/user-attachments/assets/3c8473e6-889a-4c29-a17e-81b1e7333e34" />
 
